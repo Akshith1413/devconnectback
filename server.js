@@ -13,7 +13,7 @@ app.use(express.json());
 
 // ---------- Config ----------
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://intel:intel@webprojone.gsnljtb.mongodb.net/devconnect';
+const MONGO_URI = process.env.MONGO_URI || 'devconnect';
 const JWT_SECRET = process.env.JWT_SECRET || 'change_this_secret';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
