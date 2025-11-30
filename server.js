@@ -6,6 +6,8 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
 app.use(cors());
@@ -171,11 +173,15 @@ app.post('/api/users/follow/:id', authMiddleware, async (req, res) => {
 
       // create follow notification
       try {
-        await Notification.create({
-          fromUser: me.id,
-          toUser: other.id,
-          type: 'follow'
-        });
+        const created = await Notification.create({
+  fromUser: me._id,
+  toUser: other._id,
+  type: 'follow'
+});
+io.to(`user_${other._id}`).emit(
+  'notification',
+  await created.populate('fromUser', 'username name avatar').populate('projectId', 'title')
+);
       } catch (nerr) {
         console.warn('Failed to create follow notification', nerr);
       }
@@ -236,6 +242,7 @@ app.post('/api/projects/:id/like', authMiddleware, async (req, res) => {
 
     const userId = req.user.id;
     const alreadyLiked = project.likes.some(l => l.toString() === userId.toString());
+
     if (alreadyLiked) {
       project.likes.pull(userId);
       await project.save();
@@ -247,12 +254,17 @@ app.post('/api/projects/:id/like', authMiddleware, async (req, res) => {
       // create like notification for owner (not for self)
       if (project.owner.toString() !== userId.toString()) {
         try {
-          await Notification.create({
+          const created = await Notification.create({
             fromUser: userId,
             toUser: project.owner,
             type: 'like',
             projectId: project._id
           });
+          io.to(`user_${project.owner}`).emit(
+  'notification',
+  await created.populate('fromUser', 'username name avatar').populate('projectId', 'title')
+);
+
         } catch (nerr) {
           console.warn('Failed to create like notification', nerr);
         }
@@ -265,6 +277,7 @@ app.post('/api/projects/:id/like', authMiddleware, async (req, res) => {
     return res.status(500).send('Server error');
   }
 });
+
 
 // ----- NOTIFICATIONS -----
 // GET /api/notifications
@@ -296,4 +309,37 @@ app.patch('/api/notifications/:id/read', authMiddleware, async (req, res) => {
 });
 
 // ---------- Start server ----------
-app.listen(PORT, () => console.log(`Server listening on ${PORT}`));
+// ---------- HTTP + Socket.IO setup ----------
+const httpServer = http.createServer(app);
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: true, // in dev allow all origins; tighten for prod
+    methods: ['GET', 'POST']
+  }
+});
+
+// Basic socket auth: clients connect with token in query: ?token=xxx
+io.use((socket, next) => {
+  const token = socket.handshake.query?.token;
+  if (!token) return next(new Error('Authentication error: no token'));
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    socket.user = decoded.user; // { id: '...' }
+    return next();
+  } catch (err) {
+    return next(new Error('Authentication error: invalid token'));
+  }
+});
+
+io.on('connection', (socket) => {
+  console.log('socket connected', socket.id, 'user', socket.user?.id);
+
+  // join a room for the user so we can emit to that user easily
+  if (socket.user?.id) socket.join(`user_${socket.user.id}`);
+
+  socket.on('disconnect', () => {
+    console.log('socket disconnected', socket.id);
+  });
+});
+httpServer.listen(PORT, () => console.log(`Server + sockets listening on ${PORT}`));
