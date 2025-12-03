@@ -38,16 +38,13 @@ const transporter = nodemailer.createTransport({
 });
 
 // ---------- MongoDB connect ----------
-mongoose.connect(MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
+// ---------- MongoDB connect ----------
+mongoose.connect(MONGO_URI)
   .then(() => console.log('MongoDB connected'))
   .catch(err => {
     console.error('Mongo connection error:', err);
     process.exit(1);
   });
-
 // ---------- GridFS Setup ----------
 let gfs;
 const conn = mongoose.connection;
