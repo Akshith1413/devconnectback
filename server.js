@@ -284,6 +284,20 @@ const getFileUrl = (fileId) => {
 
 // ---------- Routes ----------
 
+// In server.js, add this before the other routes:
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'DevConnect API is running',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/auth',
+      users: '/api/users',
+      projects: '/api/projects',
+      messages: '/api/messages',
+      notifications: '/api/notifications'
+    }
+  });
+});
 // Health check
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
