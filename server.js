@@ -696,20 +696,12 @@ app.get('/api/projects/:id', async (req, res) => {
 });
 
 app.get('/api/projects/tech-stacks', async (req, res) => {
+  console.log('Tech stacks endpoint called');
   try {
-    // Alternative approach: aggregate to get unique tech
-    const result = await Project.aggregate([
-      { $match: { status: 'active' } },
-      { $unwind: '$tech' },
-      { $group: { _id: '$tech' } },
-      { $sort: { _id: 1 } },
-      { $project: { _id: 0, tech: '$_id' } }
-    ]);
-    
-    const techStacks = result.map(item => item.tech).filter(Boolean);
-    return res.json(techStacks);
+    // Simple test - bypass MongoDB for now
+    return res.json(['JavaScript', 'React', 'Node.js', 'Python']);
   } catch (err) {
-    console.error('Tech stacks aggregation error:', err);
+    console.error('Simple tech stacks error:', err);
     return res.json([]);
   }
 });
