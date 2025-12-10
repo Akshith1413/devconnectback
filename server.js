@@ -397,12 +397,14 @@ app.get('/api/users/me', authMiddleware, async (req, res) => {
     
     if (!user) return res.status(404).json({ message: 'User not found' });
     
-    // Convert avatar to URL if it's a file ID
-    if (user.avatar && ObjectId.isValid(user.avatar)) {
-      user.avatar = getFileUrl(user.avatar);
+    const userObj = user.toObject();
+    
+    // Convert avatar to full URL
+    if (userObj.avatar && ObjectId.isValid(userObj.avatar)) {
+      userObj.avatar = `${req.protocol}://${req.get('host')}/api/files/${userObj.avatar}`;
     }
     
-    return res.json(user);
+    return res.json(userObj);
   } catch (err) {
     console.error('GET /api/users/me error', err);
     return res.status(500).json({ message: 'Server error' });
@@ -410,6 +412,7 @@ app.get('/api/users/me', authMiddleware, async (req, res) => {
 });
 
 // GET /api/users/:id
+// In GET /api/users/:id route
 app.get('/api/users/:id', async (req, res) => {
   try {
     const user = await User.findById(req.params.id)
@@ -424,17 +427,38 @@ app.get('/api/users/:id', async (req, res) => {
     
     if (!user) return res.status(404).json({ message: 'User not found' });
     
-    // Convert avatar to URL if it's a file ID
-    if (user.avatar && ObjectId.isValid(user.avatar)) {
-      user.avatar = getFileUrl(user.avatar);
+    // Convert avatar to full URL if it's a file ID
+    const userObj = user.toObject();
+    if (userObj.avatar && ObjectId.isValid(userObj.avatar)) {
+      userObj.avatar = `${req.protocol}://${req.get('host')}/api/files/${userObj.avatar}`;
     }
     
-    return res.json(user);
+    // Also convert avatars in followers/following
+    if (userObj.followers) {
+      userObj.followers = userObj.followers.map(f => ({
+        ...f,
+        avatar: f.avatar && ObjectId.isValid(f.avatar) 
+          ? `${req.protocol}://${req.get('host')}/api/files/${f.avatar}`
+          : f.avatar
+      }));
+    }
+    
+    if (userObj.following) {
+      userObj.following = userObj.following.map(f => ({
+        ...f,
+        avatar: f.avatar && ObjectId.isValid(f.avatar) 
+          ? `${req.protocol}://${req.get('host')}/api/files/${f.avatar}`
+          : f.avatar
+      }));
+    }
+    
+    return res.json(userObj);
   } catch (err) {
     console.error('GET /api/users/:id error', err);
     return res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 // PUT /api/users/me
 app.put('/api/users/me', authMiddleware, upload.single('avatar'), async (req, res) => {
@@ -463,12 +487,13 @@ app.put('/api/users/me', authMiddleware, upload.single('avatar'), async (req, re
       { new: true, runValidators: true }
     ).select('-password');
     
-    // Convert avatar to URL
-    if (user.avatar && ObjectId.isValid(user.avatar)) {
-      user.avatar = getFileUrl(user.avatar);
+    // Convert avatar to full URL
+    const userObj = user.toObject();
+    if (userObj.avatar && ObjectId.isValid(userObj.avatar)) {
+      userObj.avatar = `${req.protocol}://${req.get('host')}/api/files/${userObj.avatar}`;
     }
     
-    return res.json(user);
+    return res.json(userObj);
   } catch (err) {
     console.error('Update user error', err);
     return res.status(500).json({ message: 'Server error' });
