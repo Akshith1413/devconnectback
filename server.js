@@ -695,14 +695,22 @@ app.get('/api/projects/:id', async (req, res) => {
   }
 });
 
-// GET /api/projects/tech-stacks
 app.get('/api/projects/tech-stacks', async (req, res) => {
   try {
-    const techStacks = await Project.distinct('tech');
-    return res.json(techStacks.filter(Boolean).sort());
+    // Alternative approach: aggregate to get unique tech
+    const result = await Project.aggregate([
+      { $match: { status: 'active' } },
+      { $unwind: '$tech' },
+      { $group: { _id: '$tech' } },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0, tech: '$_id' } }
+    ]);
+    
+    const techStacks = result.map(item => item.tech).filter(Boolean);
+    return res.json(techStacks);
   } catch (err) {
-    console.error('tech-stacks error', err);
-    return res.status(500).json({ message: 'Server error' });
+    console.error('Tech stacks aggregation error:', err);
+    return res.json([]);
   }
 });
 
