@@ -547,6 +547,25 @@ app.post('/api/users/follow/:id', authMiddleware, likeFollowLimiter, async (req,
   }
 });
 
+app.get('/api/projects/tech-stacks', async (req, res) => {
+  try {
+    // Your tech-stacks aggregation code
+    const result = await Project.aggregate([
+      { $match: { status: 'active' } },
+      { $unwind: '$tech' },
+      { $group: { _id: '$tech' } },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0, tech: '$_id' } }
+    ]);
+    
+    const techStacks = result.map(item => item.tech).filter(Boolean);
+    return res.json(techStacks);
+  } catch (err) {
+    console.error('Tech stacks aggregation error:', err);
+    return res.json([]);
+  }
+});
+
 // ----- PROJECTS -----
 // POST /api/projects (with image upload)
 app.post('/api/projects', authMiddleware, upload.array('images', 10), async (req, res) => {
@@ -660,6 +679,7 @@ app.get('/api/projects', async (req, res) => {
   }
 });
 
+
 // GET /api/projects/:id
 app.get('/api/projects/:id', async (req, res) => {
   try {
@@ -695,16 +715,6 @@ app.get('/api/projects/:id', async (req, res) => {
   }
 });
 
-app.get('/api/projects/tech-stacks', async (req, res) => {
-  console.log('Tech stacks endpoint called');
-  try {
-    // Simple test - bypass MongoDB for now
-    return res.json(['JavaScript', 'React', 'Node.js', 'Python']);
-  } catch (err) {
-    console.error('Simple tech stacks error:', err);
-    return res.json([]);
-  }
-});
 
 // POST /api/projects/:id/like (toggle with rate limiting)
 app.post('/api/projects/:id/like', authMiddleware, likeFollowLimiter, async (req, res) => {
